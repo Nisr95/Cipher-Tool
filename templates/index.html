@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0"
+    />
+    <title>Cipher Tool</title>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap"
+      rel="stylesheet"
+    />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="{{ url_for('static', filename='img/icon.svg') }}"
+    />
+    <link
+      rel="stylesheet"
+      href="{{ url_for('static', filename='css/style.css') }}"
+    />
+  </head>
+  <body>
+    <div class="app-root">
+      <header class="app-header">
+        <div class="title-row">
+          <div class="logo">
+            <img
+              src="{{ url_for('static', filename='img/icon.svg') }}"
+              alt="Cipher Tool Icon"
+            />
+          </div>
+          <div class="title-text">
+            <h1>🔐 Cipher Tool</h1>
+            <p class="subtitle">
+              Caesar Cipher encryption, decryption &amp; frequency analysis.
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <main class="app-main">
+        <section class="control-panel card">
+          <div class="control-grid">
+            <div class="control-group">
+              <label for="modeSelect">
+                <span class="icon">
+                  <span class="icon-circle">M</span>
+                </span>
+                Process Mode
+              </label>
+              <div class="select-wrapper">
+                <select id="modeSelect">
+                  <option value="Encryption">Encryption</option>
+                  <option value="Decryption">Decryption</option>
+                  <option value="Frequency Analysis">
+                    Frequency Analysis
+                  </option>
+                </select>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label for="algorithmSelect">
+                <span class="icon">
+                  <span class="icon-circle">A</span>
+                </span>
+                Algorithm
+              </label>
+              <div class="select-wrapper">
+                <select id="algorithmSelect">
+                  <option value="Caesar Cipher">Caesar Cipher</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="control-group">
+              <label for="keyInput">
+                <span class="icon">
+                  <span class="icon-circle">K</span>
+                </span>
+                Security Key
+              </label>
+              <input
+                type="number"
+                id="keyInput"
+                class="text-input"
+                placeholder="Enter numeric key"
+                min="0"
+                step="1"
+              />
+              <small class="hint"
+                >Used only for Encryption / Decryption.</small
+              >
+            </div>
+          </div>
+        </section>
+
+        <section class="io-section">
+          <div class="io-column card">
+            <div class="io-header">
+              <h2>Input Text</h2>
+            </div>
+            <textarea
+              id="inputText"
+              class="io-textarea"
+              placeholder="Type or paste your text here..."
+            ></textarea>
+            <div class="io-footer">
+              <button id="uploadBtn" class="btn btn-secondary">
+                <span class="btn-icon">📂</span>
+                Upload Text File
+              </button>
+              <input
+                id="fileInput"
+                type="file"
+                accept=".txt"
+                style="display: none"
+              />
+            </div>
+          </div>
+
+          <div class="io-column card">
+            <div class="io-header">
+              <h2>Output Result</h2>
+            </div>
+            <textarea
+              id="outputText"
+              class="io-textarea"
+              placeholder="Processed output will appear here..."
+              readonly
+            ></textarea>
+            <div class="io-footer">
+              <button id="downloadBtn" class="btn btn-outline">
+                <span class="btn-icon">💾</span>
+                Download Output
+              </button>
+            </div>
+          </div>
+        </section>
+
+        <section class="actions card">
+          <div class="actions-left">
+            <button id="runBtn" class="btn btn-primary">
+              <span class="btn-icon spinner hidden" id="runSpinner"></span>
+              <span class="btn-icon play-icon">▶</span>
+              Run Process
+            </button>
+            <button id="clearBtn" class="btn btn-ghost">
+              <span class="btn-icon">🧹</span>
+              Clear
+            </button>
+          </div>
+          <div class="actions-right">
+            <span class="status-pill" id="statusPill">Idle</span>
+          </div>
+        </section>
+
+        <section class="log-section card">
+          <div class="log-header">
+            <h2>Process Log</h2>
+          </div>
+          <div id="logContainer" class="log-container"></div>
+        </section>
+      </main>
+
+      <div id="toastContainer" class="toast-container"></div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+  </body>
+</html>
+
