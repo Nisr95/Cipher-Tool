@@ -13,12 +13,25 @@ document.addEventListener("DOMContentLoaded", () => {
   const toastContainer = document.getElementById("toastContainer");
   const statusPill = document.getElementById("statusPill");
   const runSpinner = document.getElementById("runSpinner");
+  const detectedKeyBox = document.getElementById("detectedKeyBox");
+  const autoDetectKeyCheckbox = document.getElementById("autoDetectKeyCheckbox");
+
+  function setDetectedKey(value) {
+    if (value !== undefined && value !== null) {
+      detectedKeyBox.textContent = "Detected Key: " + value;
+      detectedKeyBox.classList.add("has-key");
+    } else {
+      detectedKeyBox.textContent = "Detected Key: -";
+      detectedKeyBox.classList.remove("has-key");
+    }
+  }
 
   function updateKeyState() {
     const mode = modeSelect.value;
     const isAnalysis = mode === "Frequency Analysis";
-    keyInput.disabled = isAnalysis;
-    if (isAnalysis) {
+    const isDetectKey = mode === "Detect Key Automatically";
+    keyInput.disabled = isAnalysis || isDetectKey;
+    if (isAnalysis || isDetectKey) {
       keyInput.value = "";
     }
   }
@@ -27,6 +40,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   modeSelect.addEventListener("change", () => {
     updateKeyState();
+    setDetectedKey(null);
     appendLog(
       `Mode changed to <strong>${modeSelect.value}</strong>.`,
       "info"
@@ -72,6 +86,7 @@ document.addEventListener("DOMContentLoaded", () => {
     inputText.value = "";
     outputText.value = "";
     clearLogs();
+    setDetectedKey(null);
     appendLog("Cleared input, output and log.", "info");
     keyInput.value = "";
   });
@@ -113,7 +128,13 @@ document.addEventListener("DOMContentLoaded", () => {
       return;
     }
 
-    if ((mode === "Encryption" || mode === "Decryption") && !key) {
+    const useAutoDetect =
+      (mode === "Decryption" && autoDetectKeyCheckbox.checked) ||
+      mode === "Detect Key Automatically";
+    if (
+      (mode === "Encryption" || (mode === "Decryption" && !useAutoDetect)) &&
+      !key
+    ) {
       showToast("Security key is required for this mode.", "error");
       appendLog(
         "Error: Security key is required for encryption/decryption.",
@@ -139,6 +160,7 @@ document.addEventListener("DOMContentLoaded", () => {
           algorithm,
           key: key || null,
           text,
+          auto_detect_key: mode === "Decryption" && autoDetectKeyCheckbox.checked,
         }),
       });
 
@@ -156,6 +178,12 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       outputText.value = data.result || "";
+
+      if (data.detected_key !== undefined && data.detected_key !== null) {
+        setDetectedKey(data.detected_key);
+      } else {
+        setDetectedKey(null);
+      }
 
       if (Array.isArray(data.log)) {
         data.log.forEach((l) => appendLog(l, "info"));
@@ -200,7 +228,9 @@ document.addEventListener("DOMContentLoaded", () => {
     modeSelect.disabled = isProcessing;
     algorithmSelect.disabled = isProcessing;
     keyInput.disabled =
-      isProcessing || modeSelect.value === "Frequency Analysis";
+      isProcessing ||
+      modeSelect.value === "Frequency Analysis" ||
+      modeSelect.value === "Detect Key Automatically";
     uploadBtn.disabled = isProcessing;
     clearBtn.disabled = isProcessing;
     downloadBtn.disabled = isProcessing;

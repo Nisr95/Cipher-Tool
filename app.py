@@ -111,6 +111,41 @@ def frequency_analysis(text: str):
 ENGLISH_FREQ_PROPORTIONS = [x / 100.0 for x in ENGLISH_FREQ]
 
 
+def score_english(text: str) -> float:
+    """
+    Score text using standard English letter frequency distribution.
+    Returns dot product of (text letter proportions) with ENGLISH_FREQ_PROPORTIONS.
+    Higher score = more English-like.
+    """
+    _, proportions, total = _letter_counts_and_proportions(text)
+    if total == 0:
+        return 0.0
+    return dot_product(proportions, ENGLISH_FREQ_PROPORTIONS)
+
+
+def detect_caesar_key(text: str):
+    """
+    Try all Caesar shifts 0–25; for each shift decrypt and score with score_english().
+    Returns (best_key, best_decrypted_text, shift_scores) where shift_scores
+    is a list of {"shift": int, "score": float} for the log panel.
+    """
+    shift_scores = []
+    best_key = 0
+    best_score = -1.0
+    best_text = text
+
+    for shift in range(26):
+        decrypted = caesar_decrypt(text, shift)
+        score = score_english(decrypted)
+        shift_scores.append({"shift": shift, "score": score})
+        if score > best_score:
+            best_score = score
+            best_key = shift
+            best_text = decrypted
+
+    return best_key, best_text, shift_scores
+
+
 def crack_caesar_cipher(ciphertext: str):
     """
     Crack Caesar cipher by frequency analysis.
@@ -159,7 +194,13 @@ def process():
             }
         )
 
-    if mode not in {"Encryption", "Decryption", "Frequency Analysis", "Crack"}:
+    if mode not in {
+        "Encryption",
+        "Decryption",
+        "Frequency Analysis",
+        "Crack",
+        "Detect Key Automatically",
+    }:
         return jsonify(
             {
                 "success": False,
@@ -167,6 +208,8 @@ def process():
                 "log": ["Error: Unsupported process mode selected."],
             }
         )
+
+    auto_detect_key = data.get("auto_detect_key") is True
 
     if not isinstance(text, str) or text == "":
         return jsonify(
@@ -182,6 +225,23 @@ def process():
 
     try:
         if mode in {"Encryption", "Decryption"}:
+            # Decryption with auto_detect_key: run detection instead of using key
+            if mode == "Decryption" and auto_detect_key:
+                best_key, best_text, shift_scores = detect_caesar_key(text)
+                log.append("Auto-detect key: trying all shifts 0–25.")
+                for s in shift_scores:
+                    log.append(f"  Shift {s['shift']:2d}: score = {s['score']:.6f}")
+                log.append(f"Detected key: {best_key}")
+                return jsonify(
+                    {
+                        "success": True,
+                        "detected_key": best_key,
+                        "result": best_text,
+                        "shift_scores": shift_scores,
+                        "log": log,
+                    }
+                )
+
             if key is None or key == "":
                 return jsonify(
                     {
@@ -217,6 +277,22 @@ def process():
                 {
                     "success": True,
                     "result": result,
+                    "log": log,
+                }
+            )
+
+        if mode == "Detect Key Automatically":
+            best_key, best_text, shift_scores = detect_caesar_key(text)
+            log.append("Detect Key Automatically: trying all shifts 0–25.")
+            for s in shift_scores:
+                log.append(f"  Shift {s['shift']:2d}: score = {s['score']:.6f}")
+            log.append(f"Detected key: {best_key}")
+            return jsonify(
+                {
+                    "success": True,
+                    "detected_key": best_key,
+                    "result": best_text,
+                    "shift_scores": shift_scores,
                     "log": log,
                 }
             )

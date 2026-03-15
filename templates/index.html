@@ -57,6 +57,9 @@
                   <option value="Frequency Analysis">
                     Frequency Analysis
                   </option>
+                  <option value="Detect Key Automatically">
+                    Detect Key Automatically
+                  </option>
                 </select>
               </div>
             </div>
@@ -92,6 +95,15 @@
               />
               <small class="hint"
                 >Used only for Encryption / Decryption.</small
+              >
+            </div>
+            <div class="control-group control-group-checkbox">
+              <label class="checkbox-label">
+                <input type="checkbox" id="autoDetectKeyCheckbox" />
+                <span>Auto Detect Key</span>
+              </label>
+              <small class="hint"
+                >When enabled (Decryption), ignores manual key and runs automatic detection.</small
               >
             </div>
           </div>
@@ -131,6 +143,7 @@
               placeholder="Processed output will appear here..."
               readonly
             ></textarea>
+            <div id="detectedKeyBox" class="detected-key-box">Detected Key: -</div>
             <div class="io-footer">
               <button id="downloadBtn" class="btn btn-outline">
                 <span class="btn-icon">💾</span>
