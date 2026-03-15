@@ -1,6 +1,5 @@
 from flask import Flask, render_template, request, jsonify, send_file
 from io import BytesIO
-import math
 import datetime
 
 
@@ -63,93 +62,77 @@ def caesar_decrypt(text: str, key: int):
     return "".join(result)
 
 
-def compute_letter_frequencies(text: str):
+def _letters_only_lower(text: str) -> str:
+    """Extract only alphabetic characters and normalize to lowercase."""
+    return "".join(ch.lower() for ch in text if ch.isalpha())
+
+
+def _letter_counts_and_proportions(text: str):
+    """Count A–Z in normalized letter-only text; return counts and proportions."""
+    letters = _letters_only_lower(text)
     counts = [0] * 26
-    total = 0
-    for ch in text:
-        if ch.isalpha():
-            idx = ord(ch.upper()) - ord("A")
-            counts[idx] += 1
-            total += 1
+    for ch in letters:
+        counts[ord(ch) - ord("a")] += 1
+    total = sum(counts)
     if total == 0:
-        freqs = [0.0] * 26
+        proportions = [0.0] * 26
     else:
-        freqs = [c * 100.0 / total for c in counts]
-    return counts, freqs, total
+        proportions = [c / total for c in counts]
+    return counts, proportions, total
 
 
 def dot_product(a, b):
     return sum(x * y for x, y in zip(a, b))
 
 
-def magnitude(a):
-    return math.sqrt(sum(x * x for x in a))
-
-
-def rotate_list(lst, shift):
-    shift = shift % len(lst)
-    return lst[-shift:] + lst[:-shift]
-
-
 def frequency_analysis(text: str):
-    counts, freqs, total = compute_letter_frequencies(text)
-    log_entries = []
-
-    log_entries.append(
-        f"Computed raw counts for A–Z over {total} letter(s)."
-    )
-
-    # Normalize English frequency so it behaves like a vector
-    english = ENGLISH_FREQ
-    eng_mag = magnitude(english)
-
-    correlations = []
-    best_shift = None
-    best_corr = -1.0
-
-    for shift in range(1, 26):  # 1 → 25 as requested
-        rotated = rotate_list(freqs, shift)
-        dp = dot_product(rotated, english)
-        vec_mag = magnitude(rotated)
-        if eng_mag == 0 or vec_mag == 0:
-            corr = 0.0
-        else:
-            corr = dp / (eng_mag * vec_mag)
-        correlations.append(
-            {
-                "shift": shift,
-                "correlation": corr,
-            }
-        )
-        log_entries.append(
-            f"Shift {shift:2d}: correlation = {corr:.6f}"
-        )
-        if corr > best_corr:
-            best_corr = corr
-            best_shift = shift
-
-    detected_key = best_shift if best_shift is not None else 0
-    auto_decrypted = caesar_decrypt(text, detected_key) if detected_key else text
-
+    """
+    Compute letter frequency distribution only. No cracking.
+    Returns frequency_table (letter, count, frequency as proportion) and log.
+    """
+    counts, proportions, total = _letter_counts_and_proportions(text)
+    log_entries = [f"Computed raw counts for A–Z over {total} letter(s)."]
     letters = [chr(ord("A") + i) for i in range(26)]
     freq_table = [
         {
             "letter": letters[i],
             "count": counts[i],
-            "frequency": freqs[i],
+            "frequency": proportions[i],
         }
         for i in range(26)
     ]
-
-    log_entries.append(f"Detected key (best shift) = {detected_key}")
-
     return {
-        "detected_key": detected_key,
-        "auto_decrypted": auto_decrypted,
-        "correlations": correlations,
         "frequency_table": freq_table,
         "log": log_entries,
     }
+
+
+# English letter frequencies as percentages (A–Z); convert to proportions for scoring
+ENGLISH_FREQ_PROPORTIONS = [x / 100.0 for x in ENGLISH_FREQ]
+
+
+def crack_caesar_cipher(ciphertext: str):
+    """
+    Crack Caesar cipher by frequency analysis.
+    - Normalize ciphertext to letters only for distribution.
+    - Compare cipher frequency distribution to shifted English.
+    - Best shift = argmax of dot_product(cipher_freq, shifted_english).
+    Returns (best_shift, cracked_text).
+    """
+    if not ciphertext or not _letters_only_lower(ciphertext):
+        return 0, ciphertext
+    _, cipher_freq, _ = _letter_counts_and_proportions(ciphertext)
+    english = ENGLISH_FREQ_PROPORTIONS
+    best_shift = 0
+    best_score = -1.0
+    for shift in range(26):
+        shifted = english[-shift:] + english[:-shift]
+        score = dot_product(cipher_freq, shifted)
+        if score > best_score:
+            best_score = score
+            best_shift = shift
+    cracked_text = caesar_decrypt(ciphertext, best_shift)
+    return best_shift, cracked_text
 
 
 @app.route("/")
@@ -176,7 +159,7 @@ def process():
             }
         )
 
-    if mode not in {"Encryption", "Decryption", "Frequency Analysis"}:
+    if mode not in {"Encryption", "Decryption", "Frequency Analysis", "Crack"}:
         return jsonify(
             {
                 "success": False,
@@ -238,26 +221,38 @@ def process():
                 }
             )
 
-        # Frequency Analysis
-        analysis = frequency_analysis(text)
-        log.extend(analysis["log"])
-        result_text_lines = [
-            f"Detected key (best shift): {analysis['detected_key']}",
-            "",
-            "Auto-decrypted text:",
-            analysis["auto_decrypted"],
-        ]
-        result_text = "\n".join(result_text_lines)
-        return jsonify(
-            {
-                "success": True,
-                "result": result_text,
-                "detected_key": analysis["detected_key"],
-                "correlations": analysis["correlations"],
-                "frequency_table": analysis["frequency_table"],
-                "log": log,
-            }
-        )
+        if mode == "Frequency Analysis":
+            analysis = frequency_analysis(text)
+            log.extend(analysis["log"])
+            table = analysis["frequency_table"]
+            result_lines = ["Letter | Count | Frequency (proportion)"]
+            for row in table:
+                result_lines.append(
+                    f"  {row['letter']}    | {row['count']:5d} | {row['frequency']:.6f}"
+                )
+            result_text = "\n".join(result_lines)
+            return jsonify(
+                {
+                    "success": True,
+                    "result": result_text,
+                    "frequency_table": analysis["frequency_table"],
+                    "log": log,
+                }
+            )
+
+        # Crack
+        if mode == "Crack":
+            best_shift, cracked_text = crack_caesar_cipher(text)
+            log.append("Ran crack_caesar_cipher (frequency-based).")
+            log.append(f"Detected key: {best_shift}")
+            return jsonify(
+                {
+                    "success": True,
+                    "detected_key": best_shift,
+                    "result": cracked_text,
+                    "log": log,
+                }
+            )
 
     except Exception as exc:  # pragma: no cover - safeguard
         log.append(f"Unexpected error: {exc}")
